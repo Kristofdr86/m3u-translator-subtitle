@@ -48,12 +48,23 @@ The translator container itself needs no GPU.
 ## Quick start
 
 ```bash
-git clone <address-of-this-repo> m3u-translator-subtitle   # or unpack the zip
+# Clone the repository
+git clone https://github.com/Kristofdr86/m3u-translator-subtitle.git
 cd m3u-translator-subtitle
-nano .env                                          # fill in ASR_URL and TRANSLATE_URL
-                                                   # (.env is included in the zip; from git: cp .env.example .env)
-./scripts/fetch-channels.sh UK uk                  # or put your own .m3u lists in channels/
+
+# Create your configuration
+cp .env.example .env
+nano .env
+
+# Download channel lists (optional)
+./scripts/fetch-channels.sh UK uk
+
+# Or place your own M3U playlists in the channels/ directory
+
+# Build and start
 docker compose up -d --build
+
+# View logs
 docker compose logs -f translator
 ```
 
