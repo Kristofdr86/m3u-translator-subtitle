@@ -1,0 +1,9 @@
+#EXTM3U
+# Example of a channel list. Copy to channels/<group-name>.m3u and fill in real addresses.
+# Every channel = two lines: #EXTINF with the name, and below it the stream address.
+# Optional: lang="xx" (used with USE_PLAYLIST_LANG=1), tvg-logo="...", http-user-agent="...".
+# Fetch public lists: ./scripts/fetch-channels.sh <group-name> <country/language/category>
+#EXTINF:-1 lang="en" tvg-logo="https://example.invalid/logo.png",English news channel
+https://example.invalid/english/live/index.m3u8
+#EXTINF:-1 lang="es",Spanish channel
+https://example.invalid/spanish/live/index.m3u8

@@ -1,0 +1,36 @@
+# Optional: NLLB translator (Meta NLLB-200) on an NVIDIA GPU, with the LibreTranslate API.
+# Enable in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.nllb.yml
+#   TRANSLATE_ENGINE=libretranslate
+#   TRANSLATE_URL=http://nllb:5000
+# Needed: NVIDIA driver and NVIDIA Container Toolkit. The first start converts the model (slow).
+# Note: the NLLB-200 model weights have their own licence (CC-BY-NC 4.0, non-commercial).
+services:
+  nllb:
+    build: ./services/nllb
+    restart: unless-stopped
+    environment:
+      - NLLB_MODEL=${NLLB_MODEL:-facebook/nllb-200-distilled-1.3B}
+      - NLLB_BEAM=${NLLB_BEAM:-4}
+      - NLLB_DEVICE=${NLLB_DEVICE:-cuda}
+      - NLLB_COMPUTE=${NLLB_COMPUTE:-int8}
+      - NLLB_WHOLE_MAX_CHARS=${NLLB_WHOLE_MAX_CHARS:-220}
+    volumes:
+      - ./data/nllb-models:/models
+      - /etc/localtime:/etc/localtime:ro
+      - ./services/nllb/glossary:/data:ro     # glossary.txt, editable without restart
+    # Only reachable from this PC; the translator uses nllb:5000 internally.
+    ports:
+      - "127.0.0.1:5100:5000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  translator:
+    depends_on:
+      nllb:
+        condition: service_healthy

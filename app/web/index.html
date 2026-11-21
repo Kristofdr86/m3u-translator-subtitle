@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M3U Translator Subtitle</title>
+<style>
+  :root {
+    --bg: #f4f2ee; --card: #ffffff; --ink: #1d1f22; --muted: #5d636b; --line: #dcd8d0;
+    --accent: #1f5f8b; --accent-ink: #ffffff; --ok: #1e7a46; --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --card: #1f2226; --ink: #eceae6; --muted: #a3a8ae; --line: #33373c;
+            --accent: #6fb3e0; --accent-ink: #0d1114; --ok: #6fcf97; --err: #ff8a80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 20px 24px 8px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); }
+  main { max-width: 1200px; margin: 0 auto; padding: 12px 24px 40px;
+         display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 24px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .preview { position: sticky; top: 12px; align-self: start; }
+  .preview img { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 8px;
+                 background: #333; }
+  .preview label { display: block; margin-top: 14px; font-weight: 600; }
+  .preview input[type=text] { width: 100%; margin-top: 6px; padding: 10px 12px; font: inherit;
+                 border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  .note { color: var(--muted); font-size: 15px; margin: 10px 0 0; }
+  .group { margin: 0 0 18px; }
+  .group h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+              margin: 0 0 8px; }
+  .field { padding: 12px 0; border-top: 1px solid var(--line); }
+  .field:first-of-type { border-top: 0; }
+  .row { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+  .field label { font-weight: 600; }
+  .help { color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .changed label::after { content: " •"; color: var(--accent); }
+  input[type=range] { flex: 1; accent-color: var(--accent); min-width: 120px; }
+  input[type=number] { width: 84px; padding: 6px 8px; font: inherit; text-align: right;
+                       border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  input[type=color] { width: 56px; height: 36px; border: 1px solid var(--line); border-radius: 8px;
+                      background: none; padding: 2px; }
+  select { width: 100%; padding: 9px 10px; font: inherit; border: 1px solid var(--line);
+           border-radius: 8px; background: var(--bg); color: var(--ink); margin-top: 6px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: transparent; color: var(--ink); padding: 7px 14px; font: inherit; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .switch { width: 22px; height: 22px; accent-color: var(--accent); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .btn { padding: 11px 18px; font: inherit; font-weight: 600; border-radius: 8px; cursor: pointer;
+         border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  #msg { margin-top: 12px; font-weight: 600; min-height: 1.5em; }
+  #msg.ok { color: var(--ok); } #msg.err { color: var(--err); }
+  .err-text { color: var(--err); font-size: 15px; margin-top: 4px; }
+
+  .top { max-width: 1200px; margin: 0 auto; padding: 18px 24px 0; display: flex; align-items: center;
+         justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .brand { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand small { font-weight: 500; color: var(--muted); font-size: 14px; margin-left: 6px; }
+  nav { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line);
+        border-radius: 10px; padding: 4px; }
+  nav a { padding: 8px 14px; border-radius: 7px; color: var(--ink); text-decoration: none; font-weight: 600; }
+  nav a.on { background: var(--accent); color: var(--accent-ink); }
+  section.tab { display: none; }
+  section.tab.on { display: block; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 12px 24px 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat .k { color: var(--muted); font-size: 14px; }
+  .stat .v { font-size: 20px; font-weight: 700; margin-top: 2px; word-break: break-word; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
+         background: var(--muted); vertical-align: middle; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: #c98a00; } .dot.bad { background: var(--err); }
+  h2.sec { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+           margin: 26px 0 10px; }
+  .subs { list-style: none; margin: 0; padding: 0; }
+  .subs li { padding: 12px 0; border-top: 1px solid var(--line); }
+  .subs li:first-child { border-top: 0; }
+  .subs .t { font-size: 20px; line-height: 1.4; }
+  .subs .o { color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .subs .tm { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); padding: 8px 0; }
+  .copy { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .copy code { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
+               font-size: 16px; word-break: break-all; }
+  .chgroup { margin-bottom: 18px; }
+  .logbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .sizes { display: flex; gap: 8px; }
+  .biglog .t { font-size: var(--logsize, 24px); }
+  .biglog .chname { color: var(--accent); font-weight: 700; font-size: 14px; margin: 10px 0 0; }
+  .problem { background: #fdecea; color: #7a1c14; border: 1px solid #f3b8b1; border-radius: 12px;
+             padding: 12px 16px; margin-bottom: 12px; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .problem { background: #3a1714; color: #ffb4ab; border-color: #6b2a24; } }
+  .testrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .testres { font-weight: 600; }
+  .testres.ok { color: var(--ok); } .testres.err { color: var(--err); }
+  input.txt { width: 100%; padding: 9px 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px;
+              background: var(--bg); color: var(--ink); margin-top: 6px; }
+  .tcols { max-width: 820px; }
+  .field > label { display: block; margin-bottom: 6px; }
+  #msg2 { margin-top: 12px; font-weight: 600; min-height: 1.5em; }
+  #msg2.ok { color: var(--ok); } #msg2.err { color: var(--err); }
+  .chlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+  .ch { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .ch.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+  .ch .n { font-weight: 600; }
+  .ch .l { color: var(--muted); font-size: 14px; }
+  input.search { width: 100%; max-width: 420px; padding: 10px 12px; font: inherit; border: 1px solid var(--line);
+                 border-radius: 8px; background: var(--card); color: var(--ink); margin-bottom: 14px; }
+
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">M3U Translator Subtitle <small id="ver"></small></div>
+  <nav aria-label="Pages">
+    <a href="#status" data-tab="status">Status</a>
+    <a href="#subtitles-log" data-tab="subtitles-log">Subtitles</a>
+    <a href="#channels" data-tab="channels">Channels</a>
+    <a href="#translation" data-tab="translation">Translation</a>
+    <a href="#subtitles" data-tab="subtitles">Subtitle style</a>
+  </nav>
+</div>
+
+<section class="tab" id="tab-status" aria-label="Status">
+  <div class="wrap">
+    <div id="problems"></div>
+    <div class="grid">
+      <div class="stat"><div class="k">Channel</div><div class="v" id="s_channel">–</div></div>
+      <div class="stat"><div class="k">State</div><div class="v"><span class="dot" id="s_dot"></span><span id="s_state">–</span></div></div>
+      <div class="stat"><div class="k">Language</div><div class="v" id="s_lang">–</div></div>
+      <div class="stat"><div class="k">Buffer for Kodi</div><div class="v" id="s_buffer">–</div></div>
+      <div class="stat"><div class="k">Subtitle behind speech</div><div class="v" id="s_behind">–</div></div>
+      <div class="stat"><div class="k">Processing per piece</div><div class="v" id="s_ai">–</div></div>
+    </div>
+
+    <h2 class="sec">Latest subtitles <a href="#subtitles-log" style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--accent);margin-left:8px">show up to 500 →</a></h2>
+    <div class="card"><ul class="subs" id="subs"><li class="empty">No channel is being watched.</li></ul></div>
+
+    <h2 class="sec">Kodi</h2>
+    <div class="card">
+      <p style="margin:0 0 10px">Channel list for <b>PVR IPTV Simple Client</b> (Location: remote path):</p>
+      <div class="copy"><code id="m3u"></code><button class="btn ghost" type="button" id="copy">Copy</button></div>
+    </div>
+
+    <h2 class="sec">System</h2>
+    <div class="grid" id="sys"></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-subtitles-log" aria-label="Subtitles">
+  <div class="wrap">
+    <div class="logbar">
+      <span class="note" id="logcount">No subtitles yet.</span>
+      <span class="sizes" role="group" aria-label="Text size">
+        <button class="btn ghost" type="button" id="smaller" aria-label="Smaller text">A−</button>
+        <button class="btn ghost" type="button" id="bigger" aria-label="Bigger text">A+</button>
+      </span>
+    </div>
+    <div class="card"><ul class="subs biglog" id="biglog"></ul></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-channels" aria-label="Channels">
+  <div class="wrap">
+    <input class="search" id="q" type="search" placeholder="Search channel or group" aria-label="Search channels">
+    <p class="note" style="margin:0 0 14px">Choose a channel in Kodi; translation starts automatically.
+      The channel that is being translated now has a green border.</p>
+    <div id="chans"></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-translation" aria-label="Translation">
+  <div class="wrap tcols">
+    <p class="note" style="margin:0 0 14px">Choose the speech recognition, the translator and the languages.
+      Use the test buttons before saving. Changes work right away, without a restart.</p>
+    <div class="card">
+      <div id="groups2"></div>
+      <div class="actions">
+        <button class="btn" id="save2" type="button">Save</button>
+        <button class="btn ghost" id="undo2" type="button">Undo changes</button>
+      </div>
+      <div id="msg2" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-subtitles" aria-label="Subtitle style">
+<header>
+  <h1>Subtitle style</h1>
+  <p>Change the style and see it right away in the preview. Saving applies to all channels.</p>
+</header>
+<main>
+  <section class="card preview" aria-label="Preview">
+    <img id="pv" alt="Preview of the subtitle">
+    <label for="sample">Sample text</label>
+    <input type="text" id="sample" value="The minister says there will be more money for education next year.">
+    <p class="note">The preview uses the same drawing method as the subtitles in Kodi.
+      After saving you see the new style in Kodi within about half a minute
+      (the translation runs a little ahead of the picture).</p>
+  </section>
+
+  <section class="card" aria-label="Settings">
+    <form id="form" onsubmit="return false">
+      <div id="groups"></div>
+      <div class="actions">
+        <button class="btn" id="save" type="button">Save</button>
+        <button class="btn ghost" id="undo" type="button">Undo changes</button>
+        <button class="btn ghost" id="reset" type="button">Back to .env values</button>
+      </div>
+      <div id="msg" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+</main>
+</section>
+
+<script>
+const GROUPS = [
+  ["Letters", ["font_file", "font_size", "outline", "box"], "groups"],
+  ["Colours", ["new_color", "old_color", "show_original"], "groups"],
+  ["Position and lines", ["position", "margin", "sub_max_lines", "lines", "sub_max_chars"], "groups"],
+  ["Timing", ["read_cps", "read_min", "read_max_delay", "hold"], "groups"],
+  ["Languages", ["src_lang", "dst_lang", "lang_allowlist"], "groups2"],
+  ["Speech recognition", ["asr_engine", "asr_url", "asr_model", "asr_key"], "groups2", "asr"],
+  ["Translator", ["tr_engine", "lt_url", "lt_key", "llm_url", "llm_model", "llm_key"], "groups2", "translator"],
+];
+const STYLE_KEYS = new Set(GROUPS.filter(g => g[2] === "groups").flatMap(g => g[1]));
+const LABELS = { bottom: "Bottom", top: "Top", http: "Server (http)", command: "Own program",
+                 plugin: "Own plugin", libretranslate: "LibreTranslate / NLLB", llm: "Language model (LLM)" };
+let info = null, saved = {}, vals = {}, timer = null;
+
+const $ = (id) => document.getElementById(id);
+
+function msg(text, kind) {
+  for (const id of ["msg", "msg2"]) { const m = $(id); if (m) { m.textContent = text; m.className = kind || ""; } }
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const body = (r.headers.get("content-type") || "").includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw Object.assign(new Error("HTTP " + r.status), { body });
+  return body;
+}
+
+function build() {
+  const byKey = Object.fromEntries(info.fields.map(f => [f.key, f]));
+  $("groups").innerHTML = ""; $("groups2").innerHTML = "";
+  for (const [title, keys, target, test] of GROUPS) {
+    const root = $(target);
+    const g = document.createElement("div");
+    g.className = "group";
+    g.innerHTML = `<h2>${title}</h2>`;
+    for (const k of keys) {
+      const f = byKey[k];
+      if (!f) continue;
+      const d = document.createElement("div");
+      d.className = "field";
+      d.id = "f_" + k;
+      let ctl = "";
+      const id = "in_" + k;
+      if (f.kind === "int" || f.kind === "float") {
+        const step = f.kind === "int" ? 1 : 0.1;
+        ctl = `<div class="row"><input type="range" id="${id}" min="${f.min}" max="${f.max}" step="${step}" aria-label="${f.label}">
+               <input type="number" id="${id}_n" min="${f.min}" max="${f.max}" step="${step}" aria-label="${f.label} (number)"></div>`;
+      } else if (f.kind === "color") {
+        ctl = `<input type="color" id="${id}" aria-label="${f.label}">`;
+      } else if (f.kind === "bool") {
+        ctl = `<input type="checkbox" class="switch" id="${id}" aria-label="${f.label}">`;
+      } else if (f.kind === "choice") {
+        ctl = `<div class="seg" role="group" aria-label="${f.label}">` +
+              f.options.map(o => `<button type="button" data-v="${o}">${LABELS[o] || o}</button>`).join("") + "</div>";
+      } else if (f.kind === "engine") {
+        ctl = `<div class="seg" role="group" aria-label="${f.label}">` +
+              f.options.map(o => `<button type="button" data-v="${o}">${LABELS[o] || o}</button>`).join("") + "</div>";
+      } else if (f.kind === "lang") {
+        ctl = `<select id="${id}">` + (f.auto ? `<option value="auto">Automatic (detect per channel)</option>` : "") +
+              info.languages.map(o => `<option value="${o.code}">${o.name} (${o.code})</option>`).join("") + "</select>";
+      } else if (f.kind === "text" || f.kind === "url" || f.kind === "langs") {
+        ctl = `<input class="txt" type="text" id="${id}" autocomplete="off" spellcheck="false">`;
+      } else if (f.kind === "secret") {
+        ctl = `<input class="txt" type="password" id="${id}" autocomplete="new-password"
+               placeholder="${f.is_set ? "set – leave empty to keep" : "not set"}">`;
+      } else if (f.kind === "font") {
+        ctl = `<select id="${id}">` + info.fonts.map(o => `<option value="${o.path}">${o.name}</option>`).join("") + "</select>";
+      }
+      const inline = f.kind === "color" || f.kind === "bool";
+      d.innerHTML = inline
+        ? `<div class="row"><label for="${id}">${f.label}</label>${ctl}</div>${f.help ? `<div class="help">${f.help}</div>` : ""}<div class="err-text"></div>`
+        : `<label for="${id}">${f.label}</label>${ctl}${f.help ? `<div class="help">${f.help}</div>` : ""}<div class="err-text"></div>`;
+      g.appendChild(d);
+    }
+    if (test) {
+      const t = document.createElement("div");
+      t.className = "testrow";
+      t.innerHTML = `<button class="btn ghost" type="button" id="test_${test}">Test ${title.toLowerCase()}</button>
+                     <span class="testres" id="res_${test}"></span>`;
+      g.appendChild(t);
+    }
+    root.appendChild(g);
+  }
+  for (const f of info.fields) wire(f);
+}
+
+function wire(f) {
+  const el = $("in_" + f.key);
+  const num = $("in_" + f.key + "_n");
+  if (f.kind === "choice" || f.kind === "engine") {
+    $("f_" + f.key).querySelectorAll("button").forEach(b =>
+      b.addEventListener("click", () => set(f.key, b.dataset.v)));
+    return;
+  }
+  const read = () => f.kind === "bool" ? el.checked
+    : f.kind === "color" ? el.value.slice(1).toUpperCase()
+    : f.kind === "int" ? parseInt(el.value, 10)
+    : f.kind === "float" ? parseFloat(el.value) : el.value;
+  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => set(f.key, read()));
+  if (num) num.addEventListener("change", () => {
+    let v = f.kind === "int" ? parseInt(num.value, 10) : parseFloat(num.value);
+    if (isNaN(v)) v = vals[f.key];
+    v = Math.min(f.max, Math.max(f.min, v));
+    set(f.key, v);
+  });
+}
+
+function show() {
+  for (const f of info.fields) {
+    const v = vals[f.key];
+    const el = $("in_" + f.key);
+    if (f.kind === "choice" || f.kind === "engine") {
+      $("f_" + f.key).querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+    } else if (f.kind === "bool") el.checked = !!v;
+    else if (f.kind === "color") el.value = "#" + String(v).padStart(6, "0");
+    else if (f.kind === "font") {
+      if (![...el.options].some(o => o.value === v)) el.add(new Option(v.split("/").pop(), v));
+      el.value = v;
+    } else { if (el.value !== String(v ?? "")) el.value = v ?? ""; const n = $("in_" + f.key + "_n"); if (n) n.value = v; }
+    $("f_" + f.key).classList.toggle("changed", JSON.stringify(v) !== JSON.stringify(saved[f.key]));
+  }
+  const dirty = info.fields.some(f => JSON.stringify(vals[f.key]) !== JSON.stringify(saved[f.key]));
+  for (const id of ["save", "undo", "save2", "undo2"]) $(id).disabled = !dirty;
+  // only show the fields of the chosen engines
+  const vis = { asr_url: vals.asr_engine === "http", asr_model: vals.asr_engine === "http", asr_key: vals.asr_engine === "http",
+                lt_url: vals.tr_engine === "libretranslate", lt_key: vals.tr_engine === "libretranslate",
+                llm_url: vals.tr_engine === "llm", llm_model: vals.tr_engine === "llm", llm_key: vals.tr_engine === "llm" };
+  for (const [k, on] of Object.entries(vis)) { const e = $("f_" + k); if (e) e.style.display = on ? "" : "none"; }
+}
+
+function set(k, v) {
+  vals[k] = v;
+  show();
+  clearTimeout(timer);
+  timer = setTimeout(preview, 180);
+}
+
+function preview() {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(vals)) if (STYLE_KEYS.has(k)) q.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v);
+  q.set("text", $("sample").value || " ");
+  q.set("old", "That was discussed in parliament yesterday.");
+  $("pv").src = "api/preview.png?" + q.toString();
+}
+
+async function load() {
+  try {
+    info = await api("api/settings");
+    saved = { ...info.values };
+    vals = { ...info.values };
+    build(); show(); preview();
+  } catch (e) {
+    msg("Settings could not be loaded (" + e.message + ").", "err");
+  }
+}
+
+async function saveAll() {
+  document.querySelectorAll(".err-text").forEach(e => e.textContent = "");
+  try {
+    const res = await api("api/settings", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vals) });
+    saved = { ...res.values }; vals = { ...res.values };
+    for (const f of info.fields) if (f.kind === "secret") { const el = $("in_" + f.key); if (el.value) { el.value = ""; el.placeholder = "set – leave empty to keep"; } }
+    show();
+    msg("Saved. This works right away for new subtitles.", "ok");
+  } catch (e) {
+    const errs = (e.body && e.body.errors) || {};
+    for (const [k, t] of Object.entries(errs)) {
+      const box = document.querySelector("#f_" + k + " .err-text");
+      if (box) box.textContent = t;
+    }
+    msg(errs._ ? "Not saved: " + errs._ : "Not saved: check the red messages.", "err");
+  }
+}
+$("save").addEventListener("click", saveAll);
+$("save2").addEventListener("click", saveAll);
+
+function undoAll() { vals = { ...saved }; show(); preview(); msg(""); }
+$("undo").addEventListener("click", undoAll);
+$("undo2").addEventListener("click", undoAll);
+
+async function runTest(kind) {
+  const res = $("res_" + kind);
+  res.className = "testres"; res.textContent = "Testing…";
+  try {
+    const r = await api("api/test/" + kind, { method: "POST", headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify(vals) });
+    res.className = "testres " + (r.ok ? "ok" : "err"); res.textContent = r.message;
+  } catch (e) { res.className = "testres err"; res.textContent = "Test failed (" + e.message + ")"; }
+}
+document.addEventListener("click", e => {
+  if (e.target.id === "test_asr") runTest("asr");
+  if (e.target.id === "test_translator") runTest("translator");
+});
+
+$("reset").addEventListener("click", async () => {
+  if (!confirm("Clear all web settings and go back to the values from .env?")) return;
+  try {
+    const res = await api("api/settings/reset", { method: "POST" });
+    saved = { ...res.values }; vals = { ...res.values };
+    show(); preview();
+    msg("Back to the values from .env.", "ok");
+  } catch (e) { msg("Failed (" + e.message + ").", "err"); }
+});
+
+$("sample").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(preview, 300); });
+
+// ---------------------------------------------------------------- tabs
+let settingsLoaded = false, statusTimer = null, channels = [];
+function showTab(name) {
+  if (!["status", "subtitles-log", "channels", "translation", "subtitles"].includes(name)) name = "status";
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("on", s.id === "tab-" + name));
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.tab === name));
+  clearInterval(statusTimer);
+  if (name === "status") { refreshStatus(); statusTimer = setInterval(refreshStatus, 3000); }
+  if (name === "subtitles-log") { refreshLog(); statusTimer = setInterval(refreshLog, 2000); }
+  if (name === "channels") loadChannels();
+  if ((name === "subtitles" || name === "translation") && !settingsLoaded) { settingsLoaded = true; load(); }
+}
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+
+// ---------------------------------------------------------------- status
+function esc(t) { return String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
+function put(id, v) { $(id).textContent = v; }
+
+async function refreshStatus() {
+  let d;
+  try { d = await api("api/status"); } catch (e) { put("s_state", "no connection"); $("s_dot").className = "dot bad"; return; }
+  put("ver", d.version || "");
+  $("problems").innerHTML = (d.problems || []).map(p => `<div class="problem">⚠ ${esc(p)}</div>`).join("");
+  const a = d.active;
+  put("s_channel", a ? a.channel : "none");
+  const st = a ? a.state : "waiting for Kodi";
+  put("s_state", st);
+  $("s_dot").className = "dot " + (!a ? "" : /error|not reachable|stopped/.test(st) ? "bad" : st === "running" ? "ok" : "warn");
+  const lang = a && (a.language_fixed || a.language);
+  put("s_lang", lang ? (lang + " → " + d.target_language + (a.language_fixed ? "" : " (detecting)")) : "–");
+  put("s_buffer", a && a.buffer_s != null ? a.buffer_s + " s" : "–");
+  put("s_behind", a && a.subtitle_behind_s != null ? a.subtitle_behind_s + " s" : "–");
+  put("s_ai", a && a.ai_s != null ? a.ai_s + " s" : "–");
+  const subs = d.recent || [];
+  $("subs").innerHTML = subs.length
+    ? subs.map(s => `<li><div class="tm">${esc(s.time)}${s.language ? " · " + esc(s.language) : ""}</div>
+        <div class="t">${esc(s.text)}</div>${s.original && s.original !== s.text ? `<div class="o">${esc(s.original)}</div>` : ""}</li>`).join("")
+    : `<li class="empty">${a ? "No subtitles yet." : "No channel is being watched."}</li>`;
+  const rest = Object.assign({}, d.system || {});
+  delete rest.speech_recognition; delete rest.translator;
+  const sys = Object.assign({"speech recognition": d.asr, "translator": d.translator}, rest);
+  $("sys").innerHTML = Object.entries(sys).map(([k, v]) =>
+    `<div class="stat"><div class="k">${esc(k.replace(/_/g, " "))}</div><div class="v" style="font-size:17px">${esc(v)}</div></div>`).join("");
+}
+
+$("m3u").textContent = location.protocol + "//" + location.host + "/kodi.m3u";
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("m3u").textContent); $("copy").textContent = "Copied"; }
+  catch (e) { $("copy").textContent = "Select and copy"; }
+  setTimeout(() => $("copy").textContent = "Copy", 2000);
+});
+
+// ---------------------------------------------------------------- subtitles (up to 500)
+let logLast = 0, logItems = [];
+async function refreshLog() {
+  let d;
+  try { d = await api("api/subtitles?after=" + logLast); } catch (e) { return; }
+  if (d.last < logLast) { logLast = 0; logItems = []; }          // program restarted
+  if (!d.items.length) return;
+  logItems = logItems.concat(d.items).slice(-500);
+  logLast = logItems[logItems.length - 1].id;
+  const rows = [];
+  let prevCh = null;
+  for (const s of logItems.slice().reverse()) {
+    if (s.channel !== prevCh) { rows.push(`<li class="chname">${esc(s.channel)}</li>`); prevCh = s.channel; }
+    rows.push(`<li><div class="tm">${esc(s.time)}${s.language ? " · " + esc(s.language) : ""}</div>
+      <div class="t">${esc(s.text)}</div>${s.original && s.original !== s.text ? `<div class="o">${esc(s.original)}</div>` : ""}</li>`);
+  }
+  $("biglog").innerHTML = rows.join("");
+  put("logcount", logItems.length + " subtitles (newest at the top, max. 500)");
+}
+let logSize = 24;
+try { logSize = parseInt(localStorage.getItem("logSize") || "24", 10) || 24; } catch (e) {}
+function applySize() {
+  document.documentElement.style.setProperty("--logsize", logSize + "px");
+  try { localStorage.setItem("logSize", String(logSize)); } catch (e) {}
+}
+$("smaller").addEventListener("click", () => { logSize = Math.max(14, logSize - 2); applySize(); });
+$("bigger").addEventListener("click", () => { logSize = Math.min(48, logSize + 2); applySize(); });
+applySize();
+
+// ---------------------------------------------------------------- channels
+async function loadChannels() {
+  try { channels = (await api("api/channels")).channels; } catch (e) { $("chans").innerHTML = `<p class="empty">Channels could not be loaded.</p>`; return; }
+  drawChannels();
+}
+function drawChannels() {
+  const q = $("q").value.trim().toLowerCase();
+  const groups = {};
+  for (const c of channels) {
+    if (q && !(c.name + " " + c.group).toLowerCase().includes(q)) continue;
+    (groups[c.group] = groups[c.group] || []).push(c);
+  }
+  const names = Object.keys(groups);
+  $("chans").innerHTML = names.length ? names.map(g => `<div class="chgroup"><h2 class="sec">${esc(g)} (${groups[g].length})</h2>
+    <div class="chlist">${groups[g].map(c => `<div class="ch${c.active ? " on" : ""}"><div class="n">${esc(c.name)}</div>
+      <div class="l">${c.active ? "translating now" : (c.language ? "language: " + esc(c.language) : "language: automatic")}</div></div>`).join("")}</div></div>`).join("")
+    : `<p class="empty">No channels found.</p>`;
+}
+$("q").addEventListener("input", drawChannels);
+
+api("api/status").then(d => put("ver", d.version || "")).catch(() => {});
+showTab(location.hash.slice(1) || (location.pathname.startsWith("/settings") || location.pathname.startsWith("/instellingen") ? "subtitles" : "status"));
+</script>
+</body>
+</html>

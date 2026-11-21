@@ -1,0 +1,19 @@
+# M3U Translator Subtitle
+# Start:     docker compose up -d --build
+# Kodi:      http://IP-OF-THIS-PC:8088/kodi.m3u
+# Web:       http://IP-OF-THIS-PC:8088/
+services:
+  translator:
+    build: .
+    container_name: m3u-translator-subtitle
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./data:/data            # remembered channel formats, waiting screens, settings.json, fonts/
+      - ./:/config:ro           # channels/ (one group per file), examples/, your own plugin
+      - /etc/localtime:/etc/localtime:ro   # log times in your own time zone
+    tmpfs:
+      - /work:size=2g           # temporary pieces in RAM
+      - /out:size=1g            # translated stream in RAM

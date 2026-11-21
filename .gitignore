@@ -1,0 +1,64 @@
+# Personal configuration and secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.secret
+*.key
+*.pem
+
+# Personal data
+data/
+logs/
+cache/
+tmp/
+temp/
+
+# IPTV playlists
+channels/*.m3u
+channels/*.m3u8
+channels.m3u
+*.playlist
+
+# Personal translation glossary
+services/nllb/glossary/*.txt
+!services/nllb/glossary/README.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker / private configuration
+docker-compose.whisper.yml
+services/whisper/
+
+# Logs
+*.log
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated subtitle files
+*.ass
+*.srt
+*.vtt
